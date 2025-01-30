@@ -3,18 +3,37 @@ const router = express.Router();
 const User = require("../models/Users");
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
-// ımage upload
-var storage = multer.diskStorage({
-    destination: function(req,file,cb){
-        cb(null,"uploads");
+
+const storage = multer.diskStorage({
+    destination: function(req, file, cb) {
+        const uploadDir = 'public/uploads';
+        if (!fs.existsSync(uploadDir)){
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
     },
-    filename: function(req,file,cb){
-        cb(null,file.fieldname + "-" + Date.now() + "-" + file.originalname);
+    filename: function(req, file, cb) {
+        cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
     }
 });
 
-var upload = multer({storage:storage}).single("image");
+const fileFilter = (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+    } else {
+        cb(new Error('Sadece resim dosyaları yüklenebilir!'), false);
+    }
+};
+
+const upload = multer({
+    storage: storage,
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB limit
+    }
+}).single('image');
 
 // insert user
 router.post("/add", upload, async (req, res) => {
@@ -58,5 +77,32 @@ router.get("/", async (req, res) => {
 router.get("/add",(req,res)=>{
     res.render("add",{title:"Kullanıcı Ekle"});
 })
+
+router.get("/edit/:id", async (req, res) => {
+    const id = req.params.id;
+    const user = await User.findById(id).exec();
+    res.render("edit-user", {
+        title: "Kullanıcı Düzenle",
+        user: user
+    });
+});
+
+router.post("/edit-user/:id", upload, async (req, res) => {
+    const id = req.params.id;
+    const user = await User.findById(id).exec();
+    user.name = req.body.name;
+    user.email = req.body.email;
+    user.phone = req.body.phone;
+    user.image = req.file.filename;
+    await user.save();
+    res.redirect("/");
+});
+
+router.get("/delete/:id", async (req, res) => {
+    const id = req.params.id;
+    await User.findByIdAndDelete(id).exec();
+    res.redirect("/");
+});
+
 
 module.exports = router;

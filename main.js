@@ -18,9 +18,9 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 // Static dosyalar için middleware
-app.use(express.static("uploads"));
-
+app.use(express.static("public/uploads"));
 app.use(express.static("public"));
+
 
 app.use(session({
   secret:"my secret key",
